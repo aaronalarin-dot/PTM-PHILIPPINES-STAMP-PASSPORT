@@ -1,71 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>Expo Stamp Passport</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #f9f9f9; margin: 0; padding: 2em; }
-    h1 { color: #333; }
-    .stamps { display: flex; justify-content: center; gap: 20px; margin: 20px 0; }
-    .stamp { width: 100px; height: 100px; border: 3px dashed #aaa; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-    .collected { border: 3px solid green; background: #c8e6c9; }
-    .progress { margin: 20px 0; }
-    .bar { width: 300px; height: 20px; border: 1px solid #333; margin: 0 auto; background: #eee; }
-    .fill { height: 100%; background: green; width: 0; }
-    #scanInput { margin-top: 20px; padding: 10px; font-size: 16px; }
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    #reader {
+      width: 300px;
+      margin: auto;
+    }
+    .progress {
+      margin-top: 20px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .stamp-list {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+    .stamp-collected {
+      color: green;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
   <h1>Expo Stamp Passport</h1>
-  <p>Scan QR codes at each station to collect stamps!</p>
+  <p>Scan the QR codes at each booth to collect your stamps!</p>
 
-  <div class="stamps">
-    <div id="stamp1" class="stamp">Stamp 1</div>
-    <div id="stamp2" class="stamp">Stamp 2</div>
-    <div id="stamp3" class="stamp">Stamp 3</div>
+  <!-- QR Scanner -->
+  <div id="reader"></div>
+
+  <!-- Progress -->
+  <div class="progress" id="progress">0/3 stamps collected</div>
+
+  <!-- Stamp list -->
+  <div class="stamp-list" id="stamps">
+    <div id="STAMP1">Stamp 1: ❌</div>
+    <div id="STAMP2">Stamp 2: ❌</div>
+    <div id="STAMP3">Stamp 3: ❌</div>
   </div>
-
-  <div class="progress">
-    <p id="progressText">0/3 stamps collected</p>
-    <div class="bar"><div id="progressFill" class="fill"></div></div>
-  </div>
-
-  <input type="text" id="scanInput" placeholder="Scan QR here..." autofocus />
 
   <script>
-    const stamps = { STAMP1: false, STAMP2: false, STAMP3: false };
-
-    // Load progress from local storage
-    window.onload = () => {
-      const saved = JSON.parse(localStorage.getItem('stamps'));
-      if (saved) {
-        for (const key in saved) {
-          stamps[key] = saved[key];
-          if (saved[key]) document.getElementById(key.toLowerCase()).classList.add('collected');
-        }
-      }
-      updateProgress();
-    };
+    const totalStamps = 3;
+    let collected = JSON.parse(localStorage.getItem("collectedStamps")) || [];
 
     function updateProgress() {
-      const count = Object.values(stamps).filter(Boolean).length;
-      document.getElementById('progressText').textContent = `${count}/3 stamps collected`;
-      document.getElementById('progressFill').style.width = `${(count/3)*100}%`;
-      localStorage.setItem('stamps', JSON.stringify(stamps));
+      document.getElementById("progress").textContent =
+        `${collected.length}/${totalStamps} stamps collected`;
+      ["STAMP1", "STAMP2", "STAMP3"].forEach(code => {
+        const el = document.getElementById(code);
+        if (collected.includes(code)) {
+          el.innerHTML = `${code.replace("STAMP", "Stamp ")}: ✅`;
+          el.classList.add("stamp-collected");
+        } else {
+          el.innerHTML = `${code.replace("STAMP", "Stamp ")}: ❌`;
+        }
+      });
+      localStorage.setItem("collectedStamps", JSON.stringify(collected));
     }
 
-    document.getElementById('scanInput').addEventListener('change', (e) => {
-      const code = e.target.value.trim().toUpperCase();
-      if (stamps.hasOwnProperty(code)) {
-        stamps[code] = true;
-        document.getElementById(code.toLowerCase()).classList.add('collected');
+    function onScanSuccess(decodedText) {
+      if (!collected.includes(decodedText) && ["STAMP1", "STAMP2", "STAMP3"].includes(decodedText)) {
+        collected.push(decodedText);
         updateProgress();
-      } else {
-        alert('Invalid code');
+        alert(`You collected ${decodedText}!`);
       }
-      e.target.value = '';
-    });
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      onScanSuccess
+    ).catch(err => console.error("Camera start error:", err));
+
+    updateProgress();
   </script>
 </body>
 </html>
