@@ -2,84 +2,135 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Expo Stamp Passport</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PHILIPPINES BOOTH STAMP PASSPORT</title>
+  <!-- QR scanner library (uses CDN). If unavailable, page falls back to manual input. -->
+  <script src="https://unpkg.com/html5-qrcode" defer></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
-    }
-    #reader {
-      width: 300px;
-      margin: auto;
-    }
-    .progress {
-      margin-top: 20px;
-      font-size: 20px;
-      font-weight: bold;
-    }
-    .stamp-list {
-      margin-top: 20px;
-      font-size: 18px;
-    }
-    .stamp-collected {
-      color: green;
-      font-weight: bold;
-    }
+    :root { --accent: #0066cc; --ok: #1b8f3a; }
+    body { font-family: Arial, Helvetica, sans-serif; text-align: center; margin: 0; padding: 24px; background: #f7f7f9; color:#222; }
+    h1 { margin: 0 0 8px; color: var(--accent); font-size: 22px; }
+    p.lead { margin: 0 0 16px; }
+    #reader { width: 320px; max-width: 92vw; margin: 16px auto; display:none; }
+    .controls { margin: 8px 0 12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+    button { padding: 10px 14px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
+    button.secondary { background: #555; }
+    .progress { margin-top: 10px; font-size: 18px; font-weight: bold; }
+    .stamp-list { margin: 12px auto 4px; font-size: 18px; max-width: 420px; text-align:left; }
+    .stamp-list div { background:#fff; border-radius:10px; padding:10px 14px; margin:8px 0; display:flex; justify-content:space-between; align-items:center; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .ok { color: var(--ok); font-weight:700; }
+    .congrats { display:none; margin:16px auto 0; max-width:560px; font-size: 18px; font-weight:700; color: var(--ok); }
+    .fallback { display:none; margin-top: 16px; }
+    .fallback input { width: 280px; max-width: 80vw; padding: 10px; border-radius: 8px; border:1px solid #ccc; }
+    .note { font-size: 12px; color:#555; margin-top:8px; }
   </style>
 </head>
 <body>
-  <h1>Expo Stamp Passport</h1>
-  <p>Scan the QR codes at each booth to collect your stamps!</p>
+  <h1>PHILIPPINES BOOTH STAMP PASSPORT</h1>
+  <p class="lead">Scan the QR Codes at each station to collect your stamp!</p>
 
-  <!-- QR Scanner -->
+  <div class="controls">
+    <button id="startBtn">Start Scanner</button>
+    <button id="stopBtn" class="secondary">Stop Scanner</button>
+  </div>
+
+  <!-- QR Scanner viewport -->
   <div id="reader"></div>
 
   <!-- Progress -->
   <div class="progress" id="progress">0/3 stamps collected</div>
 
   <!-- Stamp list -->
-  <div class="stamp-list" id="stamps">
-    <div id="STAMP1">Stamp 1: ❌</div>
-    <div id="STAMP2">Stamp 2: ❌</div>
-    <div id="STAMP3">Stamp 3: ❌</div>
+  <div class="stamp-list">
+    <div><span>Luzon</span><span id="LUZON">❌</span></div>
+    <div><span>Visayas</span><span id="VISAYAS">❌</span></div>
+    <div><span>Mindanao</span><span id="MINDANAO">❌</span></div>
+  </div>
+
+  <!-- Congratulations Message -->
+  <div class="congrats" id="congrats">🎉 Congratulations! Register your name at the counter to collect your prize.</div>
+
+  <!-- Fallback manual entry if camera/lib not available -->
+  <div class="fallback" id="fallback">
+    <p><strong>No camera?</strong> Type or paste the QR text:</p>
+    <input id="codeInput" placeholder="Enter LUZON / VISAYAS / MINDANAO" />
+    <button id="addBtn">Add Stamp</button>
+    <div class="note">Tip: Your progress is saved on this device even if you close the page.</div>
   </div>
 
   <script>
-    const totalStamps = 3;
-    let collected = JSON.parse(localStorage.getItem("collectedStamps")) || [];
+    const VALID = ["LUZON","VISAYAS","MINDANAO"];
+    const totalStamps = VALID.length;
+    let collected = JSON.parse(localStorage.getItem("collectedStampsV2")) || [];
+
+    const readerEl = document.getElementById("reader");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const fallback = document.getElementById("fallback");
+    const progressEl = document.getElementById("progress");
+    const congratsEl = document.getElementById("congrats");
+    const inputEl = document.getElementById("codeInput");
+    const addBtn = document.getElementById("addBtn");
+
+    let qr; // Html5Qrcode instance
+    let running = false;
 
     function updateProgress() {
-      document.getElementById("progress").textContent =
-        `${collected.length}/${totalStamps} stamps collected`;
-      ["STAMP1", "STAMP2", "STAMP3"].forEach(code => {
-        const el = document.getElementById(code);
-        if (collected.includes(code)) {
-          el.innerHTML = `${code.replace("STAMP", "Stamp ")}: ✅`;
-          el.classList.add("stamp-collected");
-        } else {
-          el.innerHTML = `${code.replace("STAMP", "Stamp ")}: ❌`;
-        }
+      progressEl.textContent = `${collected.length}/${totalStamps} stamps collected`;
+      VALID.forEach(code => {
+        document.getElementById(code).textContent = collected.includes(code) ? "✅" : "❌";
+        document.getElementById(code).classList.toggle("ok", collected.includes(code));
       });
-      localStorage.setItem("collectedStamps", JSON.stringify(collected));
+      localStorage.setItem("collectedStampsV2", JSON.stringify(collected));
+      congratsEl.style.display = collected.length === totalStamps ? "block" : "none";
     }
 
-    function onScanSuccess(decodedText) {
-      if (!collected.includes(decodedText) && ["STAMP1", "STAMP2", "STAMP3"].includes(decodedText)) {
-        collected.push(decodedText);
+    function addStamp(decodedText) {
+      const code = (decodedText || "").trim().toUpperCase();
+      if (!VALID.includes(code)) return;
+      if (!collected.includes(code)) {
+        collected.push(code);
         updateProgress();
-        alert(`You collected ${decodedText}!`);
+        alert(`You collected ${code}!`);
       }
     }
 
-    const html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      onScanSuccess
-    ).catch(err => console.error("Camera start error:", err));
+    async function startScanner() {
+      if (running) return;
+      if (!window.Html5Qrcode) {
+        // Library not loaded (offline) – show fallback input
+        readerEl.style.display = "none";
+        fallback.style.display = "block";
+        return;
+      }
+      try {
+        qr = qr || new Html5Qrcode("reader");
+        readerEl.style.display = "block";
+        fallback.style.display = "none";
+        await qr.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, addStamp);
+        running = true;
+      } catch (e) {
+        // If camera fails, show fallback
+        console.error(e);
+        readerEl.style.display = "none";
+        fallback.style.display = "block";
+      }
+    }
 
+    async function stopScanner() {
+      if (qr && running) {
+        await qr.stop();
+        await qr.clear();
+        running = false;
+      }
+    }
+
+    // Buttons
+    startBtn.addEventListener("click", startScanner);
+    stopBtn.addEventListener("click", stopScanner);
+    addBtn.addEventListener("click", () => addStamp(inputEl.value));
+
+    // Init UI
     updateProgress();
   </script>
 </body>
