@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Expo Stamp Passport</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    #reader {
+      width: 300px;
+      margin: auto;
+    }
+    .progress {
+      margin-top: 20px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .stamp-list {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+    .stamp-collected {
+      color: green;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Expo Stamp Passport</h1>
+  <p>Scan the QR codes at each booth to collect your stamps!</p>
+
+  <!-- QR Scanner -->
+  <div id="reader"></div>
+
+  <!-- Progress -->
+  <div class="progress" id="progress">0/3 stamps collected</div>
+
+  <!-- Stamp list -->
+  <div class="stamp-list" id="stamps">
+    <div id="STAMP1">Stamp 1: ❌</div>
+    <div id="STAMP2">Stamp 2: ❌</div>
+    <div id="STAMP3">Stamp 3: ❌</div>
+  </div>
+
+  <script>
+    const totalStamps = 3;
+    let collected = JSON.parse(localStorage.getItem("collectedStamps")) || [];
+
+    function updateProgress() {
+      document.getElementById("progress").textContent =
+        `${collected.length}/${totalStamps} stamps collected`;
+      ["STAMP1", "STAMP2", "STAMP3"].forEach(code => {
+        const el = document.getElementById(code);
+        if (collected.includes(code)) {
+          el.innerHTML = `${code.replace("STAMP", "Stamp ")}: ✅`;
+          el.classList.add("stamp-collected");
+        } else {
+          el.innerHTML = `${code.replace("STAMP", "Stamp ")}: ❌`;
+        }
+      });
+      localStorage.setItem("collectedStamps", JSON.stringify(collected));
+    }
+
+    function onScanSuccess(decodedText) {
+      if (!collected.includes(decodedText) && ["STAMP1", "STAMP2", "STAMP3"].includes(decodedText)) {
+        collected.push(decodedText);
+        updateProgress();
+        alert(`You collected ${decodedText}!`);
+      }
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      onScanSuccess
+    ).catch(err => console.error("Camera start error:", err));
+
+    updateProgress();
+  </script>
+</body>
+</html>
